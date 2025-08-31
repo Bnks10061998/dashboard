@@ -20,7 +20,7 @@ import projectRoutes from "./src/Routes/projectRoutes.js";
 // import referralRoutes from './src/routes/referralRoutes.js';
 // import galleryRoutes from './src/routes/galleryRoutes.js';
 // import templateRoutes from './src/routes/templateRoutes.js';
-// import invoiceRoutes from './src/routes/invoiceRoutes.js';
+import invoiceRoutes from './src/Routes/invoiceRoutes.js';
 // import emailRoutes from './src/routes/email.js';
 // import paymentRoutes from './src/routes/paymentRoutes.js';
 // import quotationRoutes from './src/routes/quotationRoutes.js';
@@ -121,7 +121,7 @@ app.post('/api/login', async (req, res) => {
   }
 })
 // --------- ROUTES IMPORTED FROM SEPARATE FILES ---------
-// app.use('/api/invoices', invoiceRoutes);
+app.use('/api/invoices', invoiceRoutes);
 // app.use('/api/send-email', emailRoutes);
 app.use("/api", authRoutes);
 app.use('/api/work', workRoutes);

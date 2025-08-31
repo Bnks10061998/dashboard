@@ -3,12 +3,34 @@ import { FaEdit, FaTrash, FaEye, FaPlusCircle } from "react-icons/fa";
 import axios from "axios";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { saveAs } from "file-saver"; // npm install file-saver
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import autoTable from "jspdf-autotable"; 
 const Projects = () => {
   const [projects, setProjects] = useState([]);
   const [filter, setFilter] = useState("All");
   const [viewProject, setViewProject] = useState(null);
   const [editingProject, setEditingProject] = useState(null);
   const [showNewProject, setShowNewProject] = useState(false);
+  const [deleteProject, setDeleteProject] = useState(null);
+
+const confirmDelete = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    await axios.delete(`http://localhost:5000/api/projects/${deleteProject._id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    fetchProjects();
+    toast.success("Project deleted!");
+  } catch (error) {
+    console.error("Error deleting project:", error);
+    toast.error("Failed to delete project.");
+  } finally {
+    setDeleteProject(null); // close modal
+  }
+};
   const [newProjectData, setNewProjectData] = useState({
   name: "",
   client: "",
@@ -19,6 +41,8 @@ const Projects = () => {
   priority: "Low",
   teamMembers: [],
 });
+ const [currentPage, setCurrentPage] = useState(1);
+  const [projectsPerPage] = useState(5);
   useEffect(() => {
     fetchProjects();
   }, []);
@@ -37,7 +61,11 @@ const fetchProjects = async () => {
 };
  const filteredProjects =
     filter === "All" ? projects : projects.filter((p) => p.status === filter);
-
+  // Pagination logic
+  const indexOfLast = currentPage * projectsPerPage;
+  const indexOfFirst = indexOfLast - projectsPerPage;
+  const currentProjects = filteredProjects.slice(indexOfFirst, indexOfLast);
+  const totalPages = Math.ceil(filteredProjects.length / projectsPerPage);
 const handleDelete = async (id) => {
   if (window.confirm("Are you sure you want to delete this project?")) {
     try {
@@ -108,6 +136,44 @@ const handleEditSubmit = async (e) => {
     toast.error("Failed to create project.");
   }
 };
+// Download as CSV / Excel
+ // ✅ Export to Excel
+const exportToExcel = () => {
+  const worksheet = XLSX.utils.json_to_sheet(projects);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Projects");
+  const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+  const data = new Blob([excelBuffer], { type: "application/octet-stream" });
+  saveAs(data, "Projects.xlsx");
+};
+
+// ✅ Export to PDF
+const exportToPDF = () => {
+  const doc = new jsPDF();
+
+  // Table headers
+  const tableColumn = ["Name", "Client", "Team", "Start Date", "End Date", "Priority"];
+
+  // Table rows
+  const tableRows = projects.map((p) => [
+    p.name,
+    p.client,
+    (p.teamMembers || []).join(", "),
+    p.startDate,
+    p.deadline,   // ✅ use deadline instead of endDate since that's in your schema
+    p.priority,
+  ]);
+
+  // ✅ Use autoTable correctly
+  autoTable(doc, {
+    head: [tableColumn],
+    body: tableRows,
+  });
+
+  doc.save("projects.pdf");
+};
+
+
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
       {/* Header */}
@@ -132,6 +198,21 @@ const handleEditSubmit = async (e) => {
           </button>
         </div>
       </div>
+       {/* ✅ Download buttons here */}
+    <div className="flex gap-3 mb-4">
+      <button
+        onClick={exportToExcel}
+        className="bg-green-500 text-white px-4 py-2 rounded-lg shadow hover:bg-green-600"
+      >
+        Download Excel
+      </button>
+      <button
+        onClick={exportToPDF}
+        className="bg-red-500 text-white px-4 py-2 rounded-lg shadow hover:bg-red-600"
+      >
+        Download PDF
+      </button>
+    </div>
 
       {/* Projects Table */}
       <div className="overflow-x-auto bg-white shadow-md rounded-xl">
@@ -169,7 +250,7 @@ const handleEditSubmit = async (e) => {
                   </span>
                 </td>
                 <td className="px-6 py-4"> {new Date(project.startDate).toLocaleDateString("en-GB")}</td>
-                <td className="px-6 py-4">{project.deadline}</td>
+                <td className="px-6 py-4">{new Date(project.deadline).toLocaleDateString("en-GB")}</td>
                 <td className="px-6 py-4">
                   <span
                     className={`px-2 py-1 rounded-full text-white text-xs ${
@@ -192,19 +273,70 @@ const handleEditSubmit = async (e) => {
                     <FaEdit />
                   </button>
                   <button
-                    onClick={() => handleDelete(project._id)}
+                    onClick={() => setDeleteProject(project)}
                     title="Delete"
                     className="text-red-500"
                   >
                     <FaTrash />
                   </button>
+                  {deleteProject && (
+                      <div className="fixed inset-0 flex items-center justify-center z-50">
+                        <div className="bg-white p-6 rounded-xl shadow-lg w-96">
+                          <h2 className="text-xl font-bold mb-4 text-red-600">Confirm Deletion</h2>
+                          <p className="text-gray-700 mb-6">
+                            Are you sure you want to delete project{" "}
+                            <span className="font-semibold">{deleteProject.name}</span>?
+                            This action cannot be undone.
+                          </p>
+                          <div className="flex justify-end gap-3">
+                            <button
+                              onClick={() => setDeleteProject(null)}
+                              className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={confirmDelete}
+                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-
+       {/* Pagination */}
+      <div className="flex items-right mt-4 space-x-2">
+        <button
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          className="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400"
+        >
+          Prev
+        </button>
+        {[...Array(totalPages)].map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setCurrentPage(i + 1)}
+            className={`px-3 py-1 rounded hover:bg-blue-500 ${
+              currentPage === i + 1 ? "bg-blue-600 text-white" : "bg-gray-300"
+            }`}
+          >
+            {i + 1}
+          </button>
+        ))}
+        <button
+          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+          className="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400"
+        >
+          Next
+        </button>
+      </div>
       {/* View Modal */}
         {viewProject && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -254,18 +386,18 @@ const handleEditSubmit = async (e) => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Client Name */}
                     <div>
-                      <label className="block text-gray-700 font-medium mb-1">Client Name</label>
-                      <input
-                        type="text"
-                        name="client"
-                        value={newProjectData.client}
-                        onChange={(e) =>
-                          setNewProjectData({ ...newProjectData, client: e.target.value })
-                        }
-                        required
-                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
+                        <label className="block text-gray-700 font-medium mb-1">Client Name</label>
+                        <input
+                          type="text"
+                          name="client"
+                          value={editingProject.client || ""}
+                          onChange={(e) =>
+                            setEditingProject({ ...editingProject, client: e.target.value })
+                          }
+                          required
+                          className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
 
                     {/* Priority */}
                     <div>
@@ -286,21 +418,21 @@ const handleEditSubmit = async (e) => {
 
                     {/* Assigned Team */}
                     <div>
-                      <label className="block text-gray-700 font-medium mb-1">Assigned Team</label>
-                      <input
-                        type="text"
-                        name="teamMembers"
-                        value={newProjectData.teamMembers || ""}
-                        onChange={(e) =>
-                          setNewProjectData({
-                            ...newProjectData,
-                            teamMembers: e.target.value.split(",").map((m) => m.trim()),
-                          })
-                        }
-                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="comma separated"
-                      />
-                    </div>
+  <label className="block text-gray-700 font-medium mb-1">Assigned Team</label>
+  <input
+    type="text"
+    name="teamMembers"
+    value={editingProject.teamMembers?.join(", ") || ""}
+    onChange={(e) =>
+      setEditingProject({
+        ...editingProject,
+        teamMembers: e.target.value.split(",").map((m) => m.trim()),
+      })
+    }
+    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+    placeholder="comma separated"
+  />
+</div>
                   </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
@@ -341,23 +473,6 @@ const handleEditSubmit = async (e) => {
                     </select>
                   </div>
                 </div>
-
-                {/* Priority */}
-                {/* <div>
-                  <label className="block text-gray-700 font-medium">Priority</label>
-                  <select
-                    value={editingProject.priority}
-                    onChange={(e) =>
-                      setEditingProject({ ...editingProject, priority: e.target.value })
-                    }
-                    className="w-full mt-2 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    <option>Low</option>
-                    <option>Medium</option>
-                    <option>High</option>
-                  </select>
-                </div> */}
-
                 {/* Description */}
                 <div>
                   <label className="block text-gray-700 font-medium mb-1">Description</label>
@@ -370,23 +485,6 @@ const handleEditSubmit = async (e) => {
                     className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-
-                {/* Team Members */}
-                {/* <div>
-                  <label className="block text-gray-700 font-medium mb-1">Assigned Team (comma separated)</label>
-                  <input
-                    type="text"
-                    value={editingProject.teamMembers?.join(", ") || ""}
-                    onChange={(e) =>
-                      setEditingProject({
-                        ...editingProject,
-                        teamMembers: e.target.value.split(",").map((m) => m.trim()),
-                      })
-                    }
-                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div> */}
-
                 {/* Buttons */}
                 <div className="flex justify-between">
                   <button

@@ -21,14 +21,14 @@ const menuItems = [
   // { to: '/gallery', icon: <FaImages />, label: 'Project Gallery' },
   // { to: '/templates', icon: <FaPalette />, label: 'Design Templates' },
   
-  // {
-  //   label: 'Status', icon: <FaFolderOpen />, children: [
-  //     { to: '/invoices', icon: <FaFileInvoiceDollar />, label: 'Invoices' },
-  //     { to: '/invoice-list', icon: <FaFileInvoiceDollar />, label: 'Invoice Status' },
-  //     { to: '/payment', icon: <FaCreditCard />, label: 'Payment' },
-  //     { to: '/quotation', icon: <FaQuoteLeft />, label: 'Quotation' },
-  //   ]
-  // },
+  {
+    label: 'Status', icon: <FaFolderOpen />, children: [
+      { to: '/invoices', icon: <FaFileInvoiceDollar />, label: 'Invoices' },
+      { to: '/invoice-list', icon: <FaFileInvoiceDollar />, label: 'Invoice Status' },
+      // { to: '/payment', icon: <FaCreditCard />, label: 'Payment' },
+      // { to: '/quotation', icon: <FaQuoteLeft />, label: 'Quotation' },
+    ]
+  },
 
   // {
   //   label: 'Common', icon: <FaFolderOpen />, children: [
